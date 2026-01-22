@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "flipkart-minutes": {
+      "command": "node",
+      "args": ["dist/index.js"],
+      "cwd": "/Users/anish.kumarsingh/Developer/personal/Fk-MCP/mcp-server",
+      "env": {
+        "FLIPKART_API_URL": "http://localhost:5000",
+        "MCP_LOG_LEVEL": "info"
+      }
+    }
+  }
+}

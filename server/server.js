@@ -11,6 +11,7 @@ import orderRoutes from './src/routes/order.routes.js';
 import addressRoutes from './src/routes/address.routes.js';
 import sessionRoutes from './src/routes/session.routes.js';
 import checkoutRoutes from './src/routes/checkout.routes.js';
+import mcpAuthRoutes from './src/routes/mcp-auth.routes.js';
 
 // Middleware imports
 import { errorHandler } from './src/middleware/error.middleware.js';
@@ -37,6 +38,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/session', sessionRoutes);
 app.use('/api/checkout', checkoutRoutes);
+app.use('/api/mcp-auth', mcpAuthRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

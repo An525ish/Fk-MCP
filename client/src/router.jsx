@@ -18,6 +18,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Addresses from './pages/Addresses';
 import NotFound from './pages/NotFound';
+import MCPAuthorize from './pages/MCPAuthorize';
 
 const router = createBrowserRouter([
   {
@@ -48,6 +49,10 @@ const router = createBrowserRouter([
       {
         path: 'register',
         element: <Register />,
+      },
+      {
+        path: 'mcp-authorize',
+        element: <MCPAuthorize />,
       },
       
       // Protected Routes
