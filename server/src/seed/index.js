@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
 
 import User from '../models/User.model.js';
 import Address from '../models/Address.model.js';
@@ -119,10 +118,10 @@ const seedDatabase = async () => {
     let testUser = await User.findOne({ email: 'test@example.com' });
     
     if (!testUser) {
-      const hashedPassword = await bcrypt.hash('password123', 12);
+      // Don't hash password here - the User model's pre('save') hook will do it
       testUser = await User.create({
         email: 'test@example.com',
-        password: hashedPassword,
+        password: 'password123', // Plain text - will be hashed by model hook
         name: 'Test User',
         phone: '9876543210'
       });

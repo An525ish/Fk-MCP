@@ -43,8 +43,8 @@ const orderSchema = new mongoose.Schema({
   },
   orderNumber: {
     type: String,
-    unique: true,
-    required: true
+    unique: true
+    // Note: Not required because it's auto-generated in pre('validate') hook
   },
   items: [orderItemSchema],
   address: {
@@ -108,8 +108,8 @@ const orderSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Generate order number before saving
-orderSchema.pre('save', async function(next) {
+// Generate order number before validation (so it passes required check if we add it back)
+orderSchema.pre('validate', function(next) {
   if (!this.orderNumber) {
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
