@@ -145,7 +145,8 @@ const seedDatabase = async () => {
         state: 'Delhi',
         pincode: '110016',
         isDefault: true,
-        isServiceable: true
+        isServiceable: true,
+        codLimit: 5000 // High COD limit for metro area
       },
       {
         userId: testUser._id,
@@ -159,7 +160,23 @@ const seedDatabase = async () => {
         state: 'Uttar Pradesh',
         pincode: '201301',
         isDefault: false,
-        isServiceable: true
+        isServiceable: true,
+        codLimit: 3000 // Standard COD limit
+      },
+      {
+        userId: testUser._id,
+        type: 'other',
+        name: 'Test User - Rural',
+        phone: '9876543210',
+        addressLine1: 'Village Ramnagar',
+        addressLine2: 'Near Panchayat Office',
+        landmark: 'Behind Temple',
+        city: 'Bulandshahr',
+        state: 'Uttar Pradesh',
+        pincode: '203001',
+        isDefault: false,
+        isServiceable: false, // Non-serviceable area for testing zoning conflict
+        codLimit: 0
       }
     ];
 

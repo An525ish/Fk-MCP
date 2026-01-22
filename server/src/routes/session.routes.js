@@ -2,7 +2,8 @@ import { Router } from 'express';
 import {
   setDeliveryLocation,
   getDeliveryLocation,
-  checkPincode
+  checkPincode,
+  validateLocation
 } from '../controllers/session.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
 import { validate, mongoIdValidation } from '../middleware/validate.middleware.js';
@@ -31,5 +32,14 @@ router.post('/location', [
     .isMongoId()
     .withMessage('Invalid address ID')
 ], validate, setDeliveryLocation);
+
+// MCP: Validate location for serviceability (comprehensive check)
+router.post('/validate-location', [
+  body('addressId')
+    .notEmpty()
+    .withMessage('Address ID is required')
+    .isMongoId()
+    .withMessage('Invalid address ID')
+], validate, validateLocation);
 
 export default router;

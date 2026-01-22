@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { ADDRESS_TYPE } from '../config/constants.js';
+import { ADDRESS_TYPE, COD_DEFAULT_LIMIT } from '../config/constants.js';
 
 const addressSchema = new mongoose.Schema({
   userId: {
@@ -60,6 +60,12 @@ const addressSchema = new mongoose.Schema({
   isServiceable: {
     type: Boolean,
     default: true
+  },
+  // COD limit for this pincode/area (0 means COD not available)
+  codLimit: {
+    type: Number,
+    default: COD_DEFAULT_LIMIT,
+    min: [0, 'COD limit cannot be negative']
   }
 }, {
   timestamps: true

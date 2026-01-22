@@ -7,7 +7,9 @@ import {
   getProduct,
   getAlternatives,
   getFeaturedProducts,
-  getAllProducts
+  getAllProducts,
+  smartSearch,
+  getProductVariants
 } from '../controllers/product.controller.js';
 import { validate, searchValidation, filterValidation, mongoIdValidation } from '../middleware/validate.middleware.js';
 
@@ -20,6 +22,12 @@ router.get('/category/:categoryId', mongoIdValidation('categoryId'), validate, g
 // Search and filter
 router.get('/search', searchValidation, validate, searchProducts);
 router.get('/filter', filterValidation, validate, filterProducts);
+
+// MCP Smart Search - weighted scoring, variant detection, quantity parsing
+router.get('/smart-search', smartSearch);
+
+// Product variants by group
+router.get('/variants/:variantGroup', getProductVariants);
 
 // Featured products
 router.get('/featured', getFeaturedProducts);

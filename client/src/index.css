@@ -37,6 +37,10 @@
   scrollbar-width: none;
 }
 
+button {
+  cursor: pointer;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {

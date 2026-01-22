@@ -79,6 +79,23 @@ const productSchema = new mongoose.Schema({
     type: Number,
     default: 15,
     min: [5, 'Minimum delivery time is 5 minutes']
+  },
+  // MCP-specific fields for smart search and variant handling
+  weightGrams: {
+    type: Number,
+    default: null,
+    min: [0, 'Weight cannot be negative']
+  },
+  volumeMl: {
+    type: Number,
+    default: null,
+    min: [0, 'Volume cannot be negative']
+  },
+  variantGroup: {
+    type: String,
+    trim: true,
+    default: null,
+    index: true // Index for fast variant lookups
   }
 }, {
   timestamps: true

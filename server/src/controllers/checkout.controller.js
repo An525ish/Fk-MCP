@@ -3,8 +3,9 @@ import Order from '../models/Order.model.js';
 import OrderStatus from '../models/OrderStatus.model.js';
 import Address from '../models/Address.model.js';
 import Product from '../models/Product.model.js';
+import User from '../models/User.model.js';
 import { asyncHandler, AppError } from '../middleware/error.middleware.js';
-import { ORDER_STATUS, PAYMENT_STATUS, PAYMENT_MODE, DELIVERY_CONFIG } from '../config/constants.js';
+import { ORDER_STATUS, PAYMENT_STATUS, PAYMENT_MODE, DELIVERY_CONFIG, COD_DEFAULT_LIMIT } from '../config/constants.js';
 
 // @desc    Proceed to checkout - validate cart and create pending order
 // @route   POST /api/checkout
@@ -271,4 +272,93 @@ export const processPayment = asyncHandler(async (req, res) => {
       }
     });
   }
+});
+
+// @desc    Check COD eligibility for current cart/address
+// @route   GET /api/checkout/cod-eligibility
+// @access  Private
+export const checkCodEligibility = asyncHandler(async (req, res) => {
+  const { addressId } = req.query;
+
+  // Get user's cart
+  const cart = await Cart.findOne({ userId: req.user._id });
+  if (!cart || cart.items.length === 0) {
+    return res.json({
+      success: true,
+      data: {
+        eligible: false,
+        reason: 'Cart is empty',
+        cartTotal: 0,
+        codLimit: 0
+      }
+    });
+  }
+
+  // Calculate cart total
+  const subtotal = cart.subtotal;
+  const deliveryFee = subtotal >= DELIVERY_CONFIG.FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CONFIG.DELIVERY_FEE;
+  const taxes = Math.round(subtotal * DELIVERY_CONFIG.TAX_RATE * 100) / 100;
+  const totalAmount = Math.round((subtotal + deliveryFee + taxes) * 100) / 100;
+
+  // Get address (either specified or user's active address)
+  let address;
+  if (addressId) {
+    address = await Address.findOne({ _id: addressId, userId: req.user._id });
+  } else {
+    const user = await User.findById(req.user._id);
+    if (user.activeAddressId) {
+      address = await Address.findById(user.activeAddressId);
+    }
+  }
+
+  if (!address) {
+    return res.json({
+      success: true,
+      data: {
+        eligible: false,
+        reason: 'No delivery address selected',
+        cartTotal: totalAmount,
+        codLimit: COD_DEFAULT_LIMIT
+      }
+    });
+  }
+
+  if (!address.isServiceable) {
+    return res.json({
+      success: true,
+      data: {
+        eligible: false,
+        reason: 'Delivery not available at this address',
+        cartTotal: totalAmount,
+        codLimit: 0,
+        address: {
+          city: address.city,
+          pincode: address.pincode
+        }
+      }
+    });
+  }
+
+  const codLimit = address.codLimit || COD_DEFAULT_LIMIT;
+  const isEligible = codLimit > 0 && totalAmount <= codLimit;
+
+  res.json({
+    success: true,
+    data: {
+      eligible: isEligible,
+      reason: !isEligible 
+        ? totalAmount > codLimit 
+          ? `Order amount (₹${totalAmount}) exceeds COD limit (₹${codLimit}) for this area. Please use UPI payment.`
+          : 'COD not available for this area'
+        : 'COD available for this order',
+      cartTotal: totalAmount,
+      codLimit,
+      exceedsBy: totalAmount > codLimit ? totalAmount - codLimit : 0,
+      address: {
+        city: address.city,
+        pincode: address.pincode
+      },
+      suggestUPI: !isEligible && totalAmount > codLimit
+    }
+  });
 });

@@ -4,7 +4,9 @@ import {
   addToCart,
   updateCartItem,
   removeFromCart,
-  clearCart
+  clearCart,
+  bulkAddToCart,
+  priceCheck
 } from '../controllers/cart.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
 import { validate, addToCartValidation, updateCartValidation, mongoIdValidation } from '../middleware/validate.middleware.js';
@@ -17,8 +19,14 @@ router.use(protect);
 // Get cart contents
 router.get('/', getCart);
 
+// MCP: Check for price changes in cart
+router.get('/price-check', priceCheck);
+
 // Add item to cart
 router.post('/items', addToCartValidation, validate, addToCart);
+
+// MCP: Bulk add items to cart (for recipe-to-cart flow)
+router.post('/bulk', bulkAddToCart);
 
 // Update item quantity
 router.put('/items/:productId', mongoIdValidation('productId'), updateCartValidation, validate, updateCartItem);

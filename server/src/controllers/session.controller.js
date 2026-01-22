@@ -105,3 +105,66 @@ export const checkPincode = asyncHandler(async (req, res) => {
     }
   });
 });
+
+// @desc    Validate location/address for MCP - comprehensive serviceability check
+// @route   POST /api/session/validate-location
+// @access  Private
+export const validateLocation = asyncHandler(async (req, res) => {
+  const { addressId } = req.body;
+
+  if (!addressId) {
+    throw new AppError('Address ID is required', 400);
+  }
+
+  // Find the address
+  const address = await Address.findOne({
+    _id: addressId,
+    userId: req.user._id
+  });
+
+  if (!address) {
+    throw new AppError('Address not found', 404);
+  }
+
+  // Check serviceability
+  if (!address.isServiceable) {
+    return res.json({
+      success: true,
+      data: {
+        addressId: address._id,
+        isServiceable: false,
+        available: false,
+        message: 'Sorry, Flipkart Minutes is not yet available at your selected address',
+        address: {
+          city: address.city,
+          pincode: address.pincode,
+          state: address.state
+        },
+        codLimit: 0,
+        codAvailable: false
+      }
+    });
+  }
+
+  // Address is serviceable
+  res.json({
+    success: true,
+    data: {
+      addressId: address._id,
+      isServiceable: true,
+      available: true,
+      message: 'Flipkart Minutes delivery is available at this address',
+      address: {
+        type: address.type,
+        name: address.name,
+        addressLine1: address.addressLine1,
+        city: address.city,
+        pincode: address.pincode,
+        state: address.state
+      },
+      codLimit: address.codLimit,
+      codAvailable: address.codLimit > 0,
+      estimatedDeliveryMins: 15
+    }
+  });
+});

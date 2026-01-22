@@ -1,7 +1,38 @@
 import Product from '../models/Product.model.js';
 import Category from '../models/Category.model.js';
 import { asyncHandler, AppError } from '../middleware/error.middleware.js';
-import { PAGINATION } from '../config/constants.js';
+import { PAGINATION, SEARCH_WEIGHTS } from '../config/constants.js';
+
+// Helper to parse quantity from search query (e.g., "1kg tomato" -> { value: 1000, unit: 'g' })
+const parseQuantityFromQuery = (query) => {
+  const patterns = [
+    { regex: /(\d+(?:\.\d+)?)\s*kg/i, multiplier: 1000, unit: 'g' },
+    { regex: /(\d+(?:\.\d+)?)\s*g(?:ram)?s?/i, multiplier: 1, unit: 'g' },
+    { regex: /(\d+(?:\.\d+)?)\s*l(?:iter)?s?/i, multiplier: 1000, unit: 'ml' },
+    { regex: /(\d+(?:\.\d+)?)\s*ml/i, multiplier: 1, unit: 'ml' }
+  ];
+
+  for (const pattern of patterns) {
+    const match = query.match(pattern.regex);
+    if (match) {
+      return {
+        value: parseFloat(match[1]) * pattern.multiplier,
+        unit: pattern.unit,
+        original: match[0]
+      };
+    }
+  }
+  return null;
+};
+
+// Helper to calculate weighted score for smart search
+const calculateWeightedScore = (product, maxPrice) => {
+  const normalizedRating = product.rating / 5; // Normalize to 0-1
+  const normalizedPrice = maxPrice > 0 ? 1 - (product.price / maxPrice) : 0.5; // Lower price = higher score
+  
+  return (SEARCH_WEIGHTS.RATING_WEIGHT * normalizedRating) + 
+         (SEARCH_WEIGHTS.PRICE_WEIGHT * normalizedPrice);
+};
 
 // @desc    Get all categories
 // @route   GET /api/products/categories
@@ -287,6 +318,169 @@ export const getAllProducts = asyncHandler(async (req, res) => {
         limit,
         total,
         pages: Math.ceil(total / limit)
+      }
+    }
+  });
+});
+
+// @desc    Smart search for MCP - returns weighted scores, variant detection, quantity matching
+// @route   GET /api/products/smart-search
+// @access  Public
+export const smartSearch = asyncHandler(async (req, res) => {
+  const { q, qty_hint } = req.query;
+  const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+
+  if (!q || q.trim().length === 0) {
+    throw new AppError('Search query is required', 400);
+  }
+
+  // Parse quantity from query if present
+  const parsedQuantity = parseQuantityFromQuery(q);
+  
+  // Clean query by removing quantity patterns for better text search
+  let cleanQuery = q;
+  if (parsedQuantity) {
+    cleanQuery = q.replace(parsedQuantity.original, '').trim();
+  }
+
+  // Text search
+  const searchQuery = {
+    $text: { $search: cleanQuery },
+    isAvailable: true,
+    stock: { $gt: 0 }
+  };
+
+  let products = await Product.find(searchQuery, { score: { $meta: 'textScore' } })
+    .sort({ score: { $meta: 'textScore' } })
+    .limit(limit * 2) // Get more to filter/sort later
+    .populate('categoryId', 'name slug');
+
+  // If no text search results, try regex search
+  if (products.length === 0) {
+    const regexQuery = {
+      $or: [
+        { name: { $regex: cleanQuery, $options: 'i' } },
+        { brand: { $regex: cleanQuery, $options: 'i' } },
+        { tags: { $regex: cleanQuery, $options: 'i' } }
+      ],
+      isAvailable: true,
+      stock: { $gt: 0 }
+    };
+    products = await Product.find(regexQuery)
+      .sort({ rating: -1 })
+      .limit(limit * 2)
+      .populate('categoryId', 'name slug');
+  }
+
+  // Calculate max price for normalization
+  const maxPrice = products.length > 0 ? Math.max(...products.map(p => p.price)) : 1;
+
+  // Add weighted scores and quantity match info
+  let scoredProducts = products.map(product => {
+    const productObj = product.toObject();
+    productObj.weightedScore = calculateWeightedScore(product, maxPrice);
+    
+    // Check quantity match
+    if (parsedQuantity) {
+      const targetValue = parsedQuantity.value;
+      const productValue = parsedQuantity.unit === 'g' ? product.weightGrams : product.volumeMl;
+      
+      if (productValue) {
+        productObj.quantityMatch = {
+          requested: targetValue,
+          actual: productValue,
+          unit: parsedQuantity.unit,
+          matchPercent: Math.round((1 - Math.abs(targetValue - productValue) / targetValue) * 100)
+        };
+      }
+    }
+    
+    return productObj;
+  });
+
+  // If quantity was specified, prioritize products closest to requested quantity
+  if (parsedQuantity) {
+    scoredProducts.sort((a, b) => {
+      const aMatch = a.quantityMatch?.matchPercent || 0;
+      const bMatch = b.quantityMatch?.matchPercent || 0;
+      if (aMatch !== bMatch) return bMatch - aMatch;
+      return b.weightedScore - a.weightedScore;
+    });
+  } else {
+    // Sort by weighted score
+    scoredProducts.sort((a, b) => b.weightedScore - a.weightedScore);
+  }
+
+  // Limit results
+  scoredProducts = scoredProducts.slice(0, limit);
+
+  // Detect variants (products with same variantGroup)
+  const variantGroups = {};
+  const hasVariants = scoredProducts.some(p => p.variantGroup);
+  
+  if (hasVariants) {
+    for (const product of scoredProducts) {
+      if (product.variantGroup) {
+        if (!variantGroups[product.variantGroup]) {
+          variantGroups[product.variantGroup] = [];
+        }
+        variantGroups[product.variantGroup].push({
+          id: product._id,
+          name: product.name,
+          price: product.price,
+          unit: product.unit,
+          weightGrams: product.weightGrams,
+          volumeMl: product.volumeMl
+        });
+      }
+    }
+  }
+
+  // Check if results have multiple variants of same product (ambiguity)
+  const hasAmbiguity = Object.values(variantGroups).some(variants => variants.length > 1);
+
+  res.json({
+    success: true,
+    data: {
+      query: q,
+      cleanQuery,
+      parsedQuantity,
+      products: scoredProducts,
+      variants: hasVariants ? variantGroups : null,
+      hasAmbiguity,
+      ambiguityMessage: hasAmbiguity 
+        ? 'Multiple variants found. Please specify which size/variant you prefer.'
+        : null,
+      resultCount: scoredProducts.length
+    }
+  });
+});
+
+// @desc    Get product variants by variant group
+// @route   GET /api/products/variants/:variantGroup
+// @access  Public
+export const getProductVariants = asyncHandler(async (req, res) => {
+  const { variantGroup } = req.params;
+
+  const variants = await Product.find({
+    variantGroup,
+    isAvailable: true
+  })
+    .sort({ price: 1 })
+    .populate('categoryId', 'name slug');
+
+  if (variants.length === 0) {
+    throw new AppError('No variants found for this group', 404);
+  }
+
+  res.json({
+    success: true,
+    data: {
+      variantGroup,
+      variants,
+      priceRange: {
+        min: Math.min(...variants.map(v => v.price)),
+        max: Math.max(...variants.map(v => v.price))
       }
     }
   });
