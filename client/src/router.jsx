@@ -1,8 +1,8 @@
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 
 // Layout
-import Header from './components/common/Header';
-import Footer from './components/common/Footer';
+import RootLayout from './components/common/RootLayout';
+import ProtectedRoute from './components/common/ProtectedRoute';
 
 // Pages
 import Home from './pages/Home';
@@ -18,32 +18,6 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Addresses from './pages/Addresses';
 import NotFound from './pages/NotFound';
-
-// Auth guard component
-import { useSelector } from 'react-redux';
-
-const ProtectedRoute = () => {
-  const { isAuthenticated } = useSelector((state) => state.auth);
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  return <Outlet />;
-};
-
-// Root layout with Header and Footer
-const RootLayout = () => {
-  return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <Header />
-      <main className="flex-1">
-        <Outlet />
-      </main>
-      <Footer />
-    </div>
-  );
-};
 
 const router = createBrowserRouter([
   {
