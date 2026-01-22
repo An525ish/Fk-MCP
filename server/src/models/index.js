@@ -5,3 +5,5 @@ export { default as Product } from './Product.model.js';
 export { default as Cart } from './Cart.model.js';
 export { default as Order } from './Order.model.js';
 export { default as OrderStatus } from './OrderStatus.model.js';
+export { default as UserPreference } from './UserPreference.model.js';
+export { default as ScheduledOrder } from './ScheduledOrder.model.js';

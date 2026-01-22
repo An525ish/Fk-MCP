@@ -8,6 +8,7 @@ import Product from '../models/Product.model.js';
 import Cart from '../models/Cart.model.js';
 import Order from '../models/Order.model.js';
 import OrderStatus from '../models/OrderStatus.model.js';
+import ScheduledOrder from '../models/ScheduledOrder.model.js';
 
 import { categories } from './categories.js';
 import { products } from './products.js';
@@ -53,7 +54,8 @@ const seedDatabase = async () => {
         Product.deleteMany({}),
         Cart.deleteMany({}),
         Order.deleteMany({}),
-        OrderStatus.deleteMany({})
+        OrderStatus.deleteMany({}),
+        ScheduledOrder.deleteMany({})
       ]);
       console.log('Existing data cleared');
     }
@@ -226,6 +228,8 @@ const seedDatabase = async () => {
     console.log('\nTest User Credentials:');
     console.log('Email: test@example.com');
     console.log('Password: password123');
+    console.log('\nNote: User preferences are now derived from order history.');
+    console.log('No separate preferences table needed.');
     console.log('\nDatabase Summary:');
     console.log(`- Categories: ${finalCounts.categories}`);
     console.log(`- Products: ${finalCounts.products}`);

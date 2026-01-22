@@ -98,6 +98,14 @@ const cartSlice = createSlice({
     },
     clearCartError: (state) => {
       state.error = null;
+    },
+    // Real-time update from WebSocket
+    setCartFromSocket: (state, action) => {
+      const { cart, bill } = action.payload;
+      state.items = cart.items;
+      state.totalItems = cart.totalItems;
+      state.bill = bill;
+      state.loading = false;
     }
   },
   extraReducers: (builder) => {
@@ -152,5 +160,5 @@ const cartSlice = createSlice({
   }
 });
 
-export const { resetCart, clearCartError } = cartSlice.actions;
+export const { resetCart, clearCartError, setCartFromSocket } = cartSlice.actions;
 export default cartSlice.reducer;

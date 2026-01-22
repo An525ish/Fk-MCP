@@ -264,6 +264,244 @@ export interface PaymentResponse {
 }
 
 // ============================================
+// User Preferences Types (All Derived from Order History)
+// ============================================
+
+/**
+ * User Preferences - ALL derived from order history
+ * No separate preferences table - everything computed on-the-fly
+ */
+export interface UserPreferences {
+  hasOrderHistory: boolean;
+  frequentItems: FrequentItem[];
+  shoppingPatterns: ShoppingPatterns | null;
+  preferredPaymentMethod: 'cod' | 'upi' | null;
+  preferredBrands: Array<{ brand: string; orderCount: number }>;
+  inferredDietaryPreference: {
+    type: 'veg' | 'non_veg' | 'mixed';
+    confidence: number | null;
+  } | null;
+  typicalOrderSize: number | null;
+  totalOrders: number;
+  // Guidance for MCP on what to ask
+  shouldAsk: {
+    dietaryPreference: boolean;
+    servings: boolean;
+  };
+}
+
+export interface ShoppingPatterns {
+  preferredOrderDays: string[];
+  preferredOrderTime: string;
+  averageOrderValue: number;
+  averageOrderFrequencyDays: number | null;
+  totalOrders: number;
+}
+
+export interface PreferencesResponse {
+  preferences: UserPreferences;
+}
+
+export interface FrequentItem {
+  productId: string;
+  name: string;
+  price: number;
+  unit: string;
+  image: string;
+  brand: string;
+  dietaryType?: string;
+  isAvailable: boolean;
+  orderCount: number;
+  avgQuantity: number;
+  lastOrdered: string;
+}
+
+export interface FrequentItemsResponse {
+  frequentItems: FrequentItem[];
+  totalOrders: number;
+}
+
+export interface ShoppingPatternsResponse {
+  patterns: ShoppingPatterns | null;
+  preferredPaymentMethod: string | null;
+  preferredBrands: Array<{ brand: string; orderCount: number }>;
+  inferredDietaryPreference: {
+    type: 'veg' | 'non_veg' | 'mixed';
+    confidence: number | null;
+  } | null;
+  typicalOrderSize: number | null;
+}
+
+// ============================================
+// Scheduled Order Types
+// ============================================
+
+export interface ScheduledOrder {
+  _id: string;
+  userId: string;
+  scheduledTime: string;
+  status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'failed';
+  cartSnapshot: {
+    items: CartItem[];
+    totalItems: number;
+  };
+  billSnapshot: BillDetails;
+  addressId: string;
+  paymentType: 'COD' | 'DIGITAL';
+  notes?: string;
+  createdAt: string;
+  executedAt?: string;
+  resultOrderId?: string;
+  failureReason?: string;
+}
+
+export interface ScheduledOrdersResponse {
+  scheduledOrders: ScheduledOrder[];
+}
+
+// ============================================
+// Recipe Types
+// ============================================
+
+export interface RecipeIngredient {
+  searchQuery: string;
+  baseQuantity: number;
+  unit: string;
+  optional: boolean;
+  substitutes?: string[];
+  category?: string;
+}
+
+export interface Recipe {
+  id: string;
+  name: string;
+  description: string;
+  servings: number;
+  dietaryType: 'veg' | 'non_veg' | 'vegan';
+  ingredients: RecipeIngredient[];
+  prepTime: number;
+  cookTime: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  tags: string[];
+  cuisine: string;
+}
+
+export interface RecipeCartItem {
+  productId: string;
+  name: string;
+  price: number;
+  unit: string;
+  quantity: number;
+  ingredientFor: string;
+  isSubstitute: boolean;
+  isOptional: boolean;
+  isAvailable: boolean;
+}
+
+export interface RecipeToCartResponse {
+  recipe: {
+    id: string;
+    name: string;
+    servings: number;
+    scaledServings: number;
+  };
+  items: RecipeCartItem[];
+  unavailableItems: Array<{
+    ingredient: string;
+    reason: string;
+    substitutes?: RecipeCartItem[];
+  }>;
+  estimatedTotal: number;
+  estimatedDeliveryMins: number;
+}
+
+// ============================================
+// Intent Understanding Types
+// ============================================
+
+export interface ParsedIntent {
+  type: 'recipe' | 'reorder' | 'browse' | 'schedule' | 'quick_add' | 'unknown';
+  confidence: number;
+  entities: {
+    recipe?: string;
+    servings?: number;
+    dietaryPreference?: 'veg' | 'non_veg' | 'vegan';
+    scheduledTime?: string;
+    items?: string[];
+  };
+  clarificationsNeeded: Array<{
+    field: string;
+    question: string;
+    options?: string[];
+  }>;
+  suggestedAction?: string;
+}
+
+// ============================================
+// Smart Suggestions Types
+// ============================================
+
+export interface SmartSuggestion {
+  type: 'complementary' | 'reorder' | 'budget' | 'time_based' | 'weather' | 'occasion';
+  title: string;
+  message: string;
+  products?: Array<{
+    productId: string;
+    name: string;
+    price: number;
+    unit: string;
+    reason: string;
+  }>;
+  action?: {
+    type: 'add_to_cart' | 'view_recipe' | 'reorder';
+    data: unknown;
+  };
+}
+
+export interface SmartSuggestionsResponse {
+  suggestions: SmartSuggestion[];
+  context: {
+    timeOfDay: string;
+    cartValue: number;
+    freeDeliveryGap: number;
+  };
+}
+
+// ============================================
+// Order History Analysis Types
+// ============================================
+
+export interface OrderHistoryAnalysis {
+  totalOrders: number;
+  totalSpent: number;
+  averageOrderValue: number;
+  mostOrderedItems: Array<{
+    productId: string;
+    name: string;
+    totalQuantity: number;
+    orderCount: number;
+  }>;
+  orderFrequency: {
+    daily: number;
+    weekly: number;
+    monthly: number;
+  };
+  preferredCategories: Array<{
+    category: string;
+    orderCount: number;
+    percentage: number;
+  }>;
+  recentOrders: Array<{
+    orderId: string;
+    orderNumber: string;
+    date: string;
+    totalAmount: number;
+    itemCount: number;
+    status: string;
+  }>;
+}
+
+// ============================================
 // Tool Parameter Types
 // ============================================
 
@@ -291,6 +529,34 @@ export interface ExecuteOrderParams {
   address_id: string;
 }
 
+// No UpdatePreferencesParams needed - preferences are derived from orders
+
+export interface RecipeToCartParams {
+  recipe_id?: string;
+  recipe_name?: string;
+  servings?: number;
+  dietary_preference?: 'veg' | 'non_veg' | 'vegan';
+}
+
+export interface UnderstandIntentParams {
+  message: string;
+  context?: {
+    previous_intent?: string;
+    cart_items?: number;
+  };
+}
+
+export interface ScheduleOrderParams {
+  scheduled_time: string;
+  address_id: string;
+  payment_type: 'COD' | 'DIGITAL';
+  notes?: string;
+}
+
+export interface ReorderParams {
+  order_id: string;
+}
+
 // ============================================
 // Tool Response Types
 // ============================================
@@ -300,6 +566,11 @@ export interface ToolResponse {
   message: string;
   data?: unknown;
   requiresUserAction?: boolean;
-  actionType?: 'select_variant' | 'confirm_price_change' | 'select_alternative' | 'confirm_payment';
+  actionType?: 'select_variant' | 'confirm_price_change' | 'select_alternative' | 'confirm_payment' | 'clarify_intent' | 'select_recipe' | 'confirm_schedule';
   options?: unknown[];
+  clarifications?: Array<{
+    field: string;
+    question: string;
+    options?: string[];
+  }>;
 }

@@ -277,5 +277,226 @@ export const reorder = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get order history analysis
+// @route   GET /api/orders/analysis
+// @access  Private
+export const getOrderAnalysis = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  
+  // Get all orders for analysis
+  const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+  
+  if (orders.length === 0) {
+    return res.json({
+      success: true,
+      data: {
+        analysis: {
+          totalOrders: 0,
+          totalSpent: 0,
+          averageOrderValue: 0,
+          mostOrderedItems: [],
+          orderFrequency: { daily: 0, weekly: 0, monthly: 0 },
+          preferredCategories: [],
+          recentOrders: []
+        }
+      }
+    });
+  }
+  
+  // Calculate basic stats
+  const totalOrders = orders.length;
+  const totalSpent = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+  const averageOrderValue = Math.round(totalSpent / totalOrders);
+  
+  // Calculate most ordered items
+  const itemCounts = {};
+  orders.forEach(order => {
+    order.items.forEach(item => {
+      const key = item.productId.toString();
+      if (!itemCounts[key]) {
+        itemCounts[key] = {
+          productId: item.productId,
+          name: item.name,
+          totalQuantity: 0,
+          orderCount: 0
+        };
+      }
+      itemCounts[key].totalQuantity += item.quantity;
+      itemCounts[key].orderCount += 1;
+    });
+  });
+  
+  const mostOrderedItems = Object.values(itemCounts)
+    .sort((a, b) => b.orderCount - a.orderCount)
+    .slice(0, 10);
+  
+  // Calculate order frequency
+  const now = new Date();
+  const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
+  const oneWeekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+  const oneMonthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+  
+  const orderFrequency = {
+    daily: orders.filter(o => new Date(o.createdAt) >= oneDayAgo).length,
+    weekly: orders.filter(o => new Date(o.createdAt) >= oneWeekAgo).length,
+    monthly: orders.filter(o => new Date(o.createdAt) >= oneMonthAgo).length
+  };
+  
+  // Get recent orders summary
+  const recentOrders = orders.slice(0, 5).map(order => ({
+    orderId: order._id,
+    orderNumber: order.orderNumber,
+    date: order.createdAt,
+    totalAmount: order.totalAmount,
+    itemCount: order.items.length,
+    status: order.orderStatus
+  }));
+  
+  res.json({
+    success: true,
+    data: {
+      analysis: {
+        totalOrders,
+        totalSpent,
+        averageOrderValue,
+        mostOrderedItems,
+        orderFrequency,
+        preferredCategories: [], // Would need category info on items
+        recentOrders
+      }
+    }
+  });
+});
+
+// @desc    Reorder from previous order (add to cart)
+// @route   POST /api/orders/:id/reorder-to-cart
+// @access  Private
+export const reorderToCart = asyncHandler(async (req, res) => {
+  const order = await Order.findOne({ _id: req.params.id, userId: req.user._id });
+
+  if (!order) {
+    throw new AppError('Order not found', 404);
+  }
+
+  // Get user's cart
+  const Cart = (await import('../models/Cart.model.js')).default;
+  let cart = await Cart.findOne({ userId: req.user._id });
+  
+  if (!cart) {
+    cart = await Cart.create({ userId: req.user._id, items: [] });
+  }
+
+  // Check product availability and add to cart
+  const productIds = order.items.map(item => item.productId);
+  const products = await Product.find({ _id: { $in: productIds }, isAvailable: true });
+  
+  const addedItems = [];
+  const failedItems = [];
+
+  for (const item of order.items) {
+    const product = products.find(p => p._id.toString() === item.productId.toString());
+    
+    if (!product) {
+      failedItems.push({
+        name: item.name,
+        reason: 'Product no longer available'
+      });
+      continue;
+    }
+    
+    if (product.stock < item.quantity) {
+      if (product.stock > 0) {
+        // Add available quantity
+        const existingItem = cart.items.find(i => i.productId.toString() === product._id.toString());
+        if (existingItem) {
+          existingItem.quantity = Math.min(existingItem.quantity + product.stock, product.stock);
+        } else {
+          cart.items.push({
+            productId: product._id,
+            quantity: product.stock
+          });
+        }
+        addedItems.push({
+          productId: product._id,
+          name: product.name,
+          quantity: product.stock,
+          price: product.price,
+          unit: product.unit,
+          note: `Only ${product.stock} available (requested ${item.quantity})`
+        });
+      } else {
+        failedItems.push({
+          name: item.name,
+          reason: 'Out of stock'
+        });
+      }
+      continue;
+    }
+    
+    // Add full quantity
+    const existingItem = cart.items.find(i => i.productId.toString() === product._id.toString());
+    if (existingItem) {
+      existingItem.quantity = Math.min(existingItem.quantity + item.quantity, 10);
+    } else {
+      cart.items.push({
+        productId: product._id,
+        quantity: item.quantity
+      });
+    }
+    
+    addedItems.push({
+      productId: product._id,
+      name: product.name,
+      quantity: item.quantity,
+      price: product.price,
+      unit: product.unit
+    });
+  }
+
+  await cart.save();
+  
+  // Populate cart for response
+  await cart.populate('items.productId');
+  
+  // Calculate bill
+  const subtotal = cart.items.reduce((sum, item) => {
+    return sum + (item.productId.price * item.quantity);
+  }, 0);
+  
+  const deliveryFee = subtotal >= DELIVERY_CONFIG.FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CONFIG.DELIVERY_FEE;
+  const taxes = Math.round(subtotal * DELIVERY_CONFIG.TAX_RATE);
+  const totalAmount = subtotal + deliveryFee + taxes;
+
+  res.json({
+    success: true,
+    message: failedItems.length > 0 
+      ? `Added ${addedItems.length} items to cart. ${failedItems.length} items unavailable.`
+      : `Added ${addedItems.length} items to cart.`,
+    data: {
+      cart: {
+        items: cart.items.map(item => ({
+          productId: item.productId._id,
+          name: item.productId.name,
+          image: item.productId.image,
+          unit: item.productId.unit,
+          price: item.productId.price,
+          quantity: item.quantity
+        })),
+        totalItems: cart.items.reduce((sum, item) => sum + item.quantity, 0)
+      },
+      bill: {
+        subtotal,
+        deliveryFee,
+        taxes,
+        totalAmount,
+        freeDeliveryThreshold: DELIVERY_CONFIG.FREE_DELIVERY_THRESHOLD,
+        amountToFreeDelivery: Math.max(0, DELIVERY_CONFIG.FREE_DELIVERY_THRESHOLD - subtotal)
+      },
+      addedItems,
+      failedItems
+    }
+  });
+});
+
 // Export payment functions from checkout controller
 export { setPaymentMode, processPayment };

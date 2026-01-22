@@ -22,6 +22,13 @@ import type {
   PaymentResponse,
   Address,
   Product,
+  UserPreferences,
+  PreferencesResponse,
+  FrequentItemsResponse,
+  ShoppingPatternsResponse,
+  ScheduledOrder,
+  ScheduledOrdersResponse,
+  OrderHistoryAnalysis,
 } from '../types/index.js';
 
 export class FlipkartAPIClient {
@@ -459,6 +466,96 @@ export class FlipkartAPIClient {
    */
   async checkAuthStatus(code: string): Promise<{ status: 'pending' | 'approved' | 'denied'; token?: string; user?: { id: string; name: string; email: string }; message?: string }> {
     const response = await this.client.get<ApiResponse<{ status: 'pending' | 'approved' | 'denied'; token?: string; user?: { id: string; name: string; email: string }; message?: string }>>(`/api/mcp-auth/status/${code}`);
+    return response.data.data;
+  }
+
+  // ============================================
+  // User Preferences APIs (all derived from order history)
+  // ============================================
+
+  /**
+   * Get user preferences (derived from order history)
+   */
+  async getPreferences(): Promise<PreferencesResponse> {
+    const response = await this.client.get<ApiResponse<PreferencesResponse>>('/api/preferences');
+    return response.data.data;
+  }
+
+  /**
+   * Get frequent items (derived from order history)
+   */
+  async getFrequentItems(limit?: number): Promise<FrequentItemsResponse> {
+    const params = limit ? { limit } : {};
+    const response = await this.client.get<ApiResponse<FrequentItemsResponse>>('/api/preferences/frequent-items', { params });
+    return response.data.data;
+  }
+
+  /**
+   * Get shopping patterns (derived from order history)
+   */
+  async getShoppingPatterns(): Promise<ShoppingPatternsResponse> {
+    const response = await this.client.get<ApiResponse<ShoppingPatternsResponse>>('/api/preferences/patterns');
+    return response.data.data;
+  }
+
+  // ============================================
+  // Scheduled Orders APIs
+  // ============================================
+
+  /**
+   * Create a scheduled order
+   */
+  async createScheduledOrder(data: {
+    scheduledTime: string;
+    addressId: string;
+    paymentType: 'COD' | 'DIGITAL';
+    notes?: string;
+  }): Promise<{ scheduledOrder: ScheduledOrder }> {
+    const response = await this.client.post<ApiResponse<{ scheduledOrder: ScheduledOrder }>>('/api/scheduled-orders', data);
+    return response.data.data;
+  }
+
+  /**
+   * Get all scheduled orders
+   */
+  async getScheduledOrders(): Promise<ScheduledOrdersResponse> {
+    const response = await this.client.get<ApiResponse<ScheduledOrdersResponse>>('/api/scheduled-orders');
+    return response.data.data;
+  }
+
+  /**
+   * Cancel a scheduled order
+   */
+  async cancelScheduledOrder(orderId: string): Promise<{ message: string }> {
+    const response = await this.client.delete<ApiResponse<{ message: string }>>(`/api/scheduled-orders/${orderId}`);
+    return response.data.data;
+  }
+
+  /**
+   * Manually execute a scheduled order
+   */
+  async executeScheduledOrder(orderId: string): Promise<{ order: { orderId: string; orderNumber: string } }> {
+    const response = await this.client.post<ApiResponse<{ order: { orderId: string; orderNumber: string } }>>(`/api/scheduled-orders/${orderId}/execute`);
+    return response.data.data;
+  }
+
+  // ============================================
+  // Order History & Reorder APIs
+  // ============================================
+
+  /**
+   * Get order history analysis
+   */
+  async getOrderAnalysis(): Promise<{ analysis: OrderHistoryAnalysis }> {
+    const response = await this.client.get<ApiResponse<{ analysis: OrderHistoryAnalysis }>>('/api/orders/analysis');
+    return response.data.data;
+  }
+
+  /**
+   * Reorder from a previous order
+   */
+  async reorderFromPrevious(orderId: string): Promise<CartResponse> {
+    const response = await this.client.post<ApiResponse<CartResponse>>(`/api/orders/reorder/${orderId}`);
     return response.data.data;
   }
 }

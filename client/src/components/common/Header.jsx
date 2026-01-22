@@ -1,18 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { FiSearch, FiShoppingCart, FiUser, FiMapPin, FiChevronDown, FiPackage, FiLogOut } from 'react-icons/fi';
+import { FiSearch, FiShoppingCart, FiUser, FiMapPin, FiChevronDown, FiPackage, FiLogOut, FiWifi } from 'react-icons/fi';
 import { logout } from '../../store/slices/authSlice';
+import { isConnected, subscribe } from '../../services/socket';
 
 const Header = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
 
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const { totalItems } = useSelector((state) => state.cart);
   const { activeAddress } = useSelector((state) => state.addresses);
+
+  // Track socket connection status
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Check initial status
+      setSocketConnected(isConnected());
+      
+      // Subscribe to connection events
+      const unsubConnect = subscribe('connect', () => setSocketConnected(true));
+      const unsubDisconnect = subscribe('disconnect', () => setSocketConnected(false));
+      
+      return () => {
+        unsubConnect();
+        unsubDisconnect();
+      };
+    } else {
+      setSocketConnected(false);
+    }
+  }, [isAuthenticated]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -153,6 +174,17 @@ const Header = () => {
               </div>
               <span className="hidden md:inline">Cart</span>
             </Link>
+
+            {/* Real-time sync indicator */}
+            {isAuthenticated && socketConnected && (
+              <div className="hidden md:flex items-center gap-1 text-green-300 text-xs" title="Real-time sync active">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400"></span>
+                </span>
+                <span>Live</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

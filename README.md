@@ -219,5 +219,52 @@ The seed script creates:
 - 50+ products with realistic prices and images
 - 1 test user with 2 addresses
 
+## MCP Server (AI Shopping Assistant)
+
+This project includes an intelligent MCP (Model Context Protocol) server that enables AI assistants to help users shop through natural conversation.
+
+### MCP Features
+
+- **24 AI Tools**: Search, cart, checkout, recipes, scheduling, suggestions
+- **Recipe Intelligence**: 15 built-in recipes with automatic ingredient scaling
+- **Scheduled Orders**: "Deliver at 6 PM" - auto-executes at scheduled time
+- **Smart Suggestions**: Context-aware recommendations based on time, cart, history
+- **Conversation Memory**: Multi-turn context tracking
+
+### Quick MCP Setup
+
+```bash
+# Install MCP dependencies
+cd mcp-server && npm install
+
+# Build
+npm run build
+
+# Configure in Cursor (~/.cursor/mcp.json)
+{
+  "mcpServers": {
+    "flipkart-minutes": {
+      "command": "node",
+      "args": ["/path/to/Fk-MCP/mcp-server/dist/index.js"]
+    }
+  }
+}
+```
+
+### Example Conversations
+
+```
+User: "I want to make chicken biryani for 6 people"
+AI: Lists all ingredients, scales quantities, shows total cost
+
+User: "Order groceries for tomorrow 5 PM"
+AI: Builds cart, schedules delivery, auto-places order at 5 PM
+
+User: "What should I buy?"
+AI: Suggests based on time of day, cart contents, order history
+```
+
+📚 **Full MCP Documentation**: See [mcp-server/README.md](mcp-server/README.md) for complete technical documentation.
+
 ## License
 MIT

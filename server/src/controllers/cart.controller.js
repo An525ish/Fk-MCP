@@ -2,6 +2,7 @@ import Cart from '../models/Cart.model.js';
 import Product from '../models/Product.model.js';
 import { asyncHandler, AppError } from '../middleware/error.middleware.js';
 import { DELIVERY_CONFIG, PRICE_CHANGE_THRESHOLD } from '../config/constants.js';
+import { emitCartUpdate } from '../socket/index.js';
 
 // Helper to calculate bill details
 const calculateBillDetails = (cart) => {
@@ -101,17 +102,22 @@ export const addToCart = asyncHandler(async (req, res) => {
   await cart.save();
 
   const billDetails = calculateBillDetails(cart);
+  
+  const cartData = {
+    cart: {
+      items: cart.items,
+      totalItems: cart.totalItems
+    },
+    bill: billDetails
+  };
+
+  // Emit real-time update to all user's connected clients
+  emitCartUpdate(req.user._id, cartData);
 
   res.status(201).json({
     success: true,
     message: 'Item added to cart',
-    data: {
-      cart: {
-        items: cart.items,
-        totalItems: cart.totalItems
-      },
-      bill: billDetails
-    }
+    data: cartData
   });
 });
 
@@ -155,17 +161,22 @@ export const updateCartItem = asyncHandler(async (req, res) => {
   await cart.save();
 
   const billDetails = calculateBillDetails(cart);
+  
+  const cartData = {
+    cart: {
+      items: cart.items,
+      totalItems: cart.totalItems
+    },
+    bill: billDetails
+  };
+
+  // Emit real-time update
+  emitCartUpdate(req.user._id, cartData);
 
   res.json({
     success: true,
     message: quantity <= 0 ? 'Item removed from cart' : 'Cart updated',
-    data: {
-      cart: {
-        items: cart.items,
-        totalItems: cart.totalItems
-      },
-      bill: billDetails
-    }
+    data: cartData
   });
 });
 
@@ -200,17 +211,22 @@ export const removeFromCart = asyncHandler(async (req, res) => {
   await cart.save();
 
   const billDetails = calculateBillDetails(cart);
+  
+  const cartData = {
+    cart: {
+      items: cart.items,
+      totalItems: cart.totalItems
+    },
+    bill: billDetails
+  };
+
+  // Emit real-time update
+  emitCartUpdate(req.user._id, cartData);
 
   res.json({
     success: true,
     message: 'Item removed from cart',
-    data: {
-      cart: {
-        items: cart.items,
-        totalItems: cart.totalItems
-      },
-      bill: billDetails
-    }
+    data: cartData
   });
 });
 
@@ -225,23 +241,28 @@ export const clearCart = asyncHandler(async (req, res) => {
     await cart.save();
   }
 
+  const cartData = {
+    cart: {
+      items: [],
+      totalItems: 0
+    },
+    bill: {
+      subtotal: 0,
+      deliveryFee: DELIVERY_CONFIG.DELIVERY_FEE,
+      taxes: 0,
+      totalAmount: DELIVERY_CONFIG.DELIVERY_FEE,
+      freeDeliveryThreshold: DELIVERY_CONFIG.FREE_DELIVERY_THRESHOLD,
+      amountToFreeDelivery: DELIVERY_CONFIG.FREE_DELIVERY_THRESHOLD
+    }
+  };
+
+  // Emit real-time update
+  emitCartUpdate(req.user._id, cartData);
+
   res.json({
     success: true,
     message: 'Cart cleared',
-    data: {
-      cart: {
-        items: [],
-        totalItems: 0
-      },
-      bill: {
-        subtotal: 0,
-        deliveryFee: DELIVERY_CONFIG.DELIVERY_FEE,
-        taxes: 0,
-        totalAmount: DELIVERY_CONFIG.DELIVERY_FEE,
-        freeDeliveryThreshold: DELIVERY_CONFIG.FREE_DELIVERY_THRESHOLD,
-        amountToFreeDelivery: DELIVERY_CONFIG.FREE_DELIVERY_THRESHOLD
-      }
-    }
+    data: cartData
   });
 });
 
@@ -367,17 +388,24 @@ export const bulkAddToCart = asyncHandler(async (req, res) => {
   await cart.save();
   const billDetails = calculateBillDetails(cart);
 
+  const cartData = {
+    cart: {
+      items: cart.items,
+      totalItems: cart.totalItems
+    },
+    bill: billDetails
+  };
+
+  // Emit real-time update (important for MCP bulk adds)
+  emitCartUpdate(req.user._id, cartData);
+
   res.status(201).json({
     success: true,
     message: `${successItems.length} items added, ${failedItems.length} failed`,
     data: {
       successItems,
       failedItems,
-      cart: {
-        items: cart.items,
-        totalItems: cart.totalItems
-      },
-      bill: billDetails
+      ...cartData
     }
   });
 });

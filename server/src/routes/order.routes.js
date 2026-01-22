@@ -5,6 +5,8 @@ import {
   getOrderStatus,
   cancelOrder,
   reorder,
+  reorderToCart,
+  getOrderAnalysis,
   setPaymentMode,
   processPayment
 } from '../controllers/order.controller.js';
@@ -19,6 +21,9 @@ router.use(protect);
 
 // Get order history
 router.get('/', getOrderHistory);
+
+// Get order analysis
+router.get('/analysis', getOrderAnalysis);
 
 // Get single order
 router.get('/:id', mongoIdValidation('id'), validate, getOrder);
@@ -41,7 +46,10 @@ router.post('/:id/cancel', mongoIdValidation('id'), [
     .withMessage('Reason cannot exceed 500 characters')
 ], validate, cancelOrder);
 
-// Reorder
+// Reorder (check availability)
 router.post('/:id/reorder', mongoIdValidation('id'), validate, reorder);
+
+// Reorder to cart (add items to cart)
+router.post('/:id/reorder-to-cart', mongoIdValidation('id'), validate, reorderToCart);
 
 export default router;

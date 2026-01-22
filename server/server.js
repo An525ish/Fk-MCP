@@ -1,4 +1,5 @@
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -12,14 +13,23 @@ import addressRoutes from './src/routes/address.routes.js';
 import sessionRoutes from './src/routes/session.routes.js';
 import checkoutRoutes from './src/routes/checkout.routes.js';
 import mcpAuthRoutes from './src/routes/mcp-auth.routes.js';
+import preferencesRoutes from './src/routes/preferences.routes.js';
+import scheduledRoutes from './src/routes/scheduled.routes.js';
 
 // Middleware imports
 import { errorHandler } from './src/middleware/error.middleware.js';
+
+// Job imports
+import { startScheduler } from './src/jobs/scheduler.js';
+
+// Socket imports
+import { initializeSocket } from './src/socket/index.js';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 5000;
 
 // Middleware
@@ -39,6 +49,8 @@ app.use('/api/addresses', addressRoutes);
 app.use('/api/session', sessionRoutes);
 app.use('/api/checkout', checkoutRoutes);
 app.use('/api/mcp-auth', mcpAuthRoutes);
+app.use('/api/preferences', preferencesRoutes);
+app.use('/api/scheduled-orders', scheduledRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -59,9 +71,16 @@ const startServer = async () => {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
     
-    app.listen(PORT, () => {
+    // Initialize Socket.IO
+    initializeSocket(httpServer);
+    
+    httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`API available at http://localhost:${PORT}/api`);
+      console.log(`WebSocket available at ws://localhost:${PORT}`);
+      
+      // Start the scheduled order processor
+      startScheduler();
     });
   } catch (error) {
     console.error('Failed to connect to MongoDB:', error.message);
