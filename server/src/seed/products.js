@@ -66,7 +66,7 @@ export const products = [
     price: 35,
     mrp: 42,
     unit: '1 kg',
-    image: 'https://images.unsplash.com/photo-1518977676601-b53f82ber8a7?w=400',
+    image: 'https://images.unsplash.com/photo-1518977676601-b53f82bbe8a7?w=400',
     categorySlug: 'fruits-vegetables',
     brand: 'Farm Fresh',
     rating: 4.3,

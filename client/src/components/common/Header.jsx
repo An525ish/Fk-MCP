@@ -36,27 +36,32 @@ const Header = () => {
             <span className="text-white text-xl font-bold italic">Flipkart</span>
             <span className="text-[10px] text-gray-200 italic flex items-center gap-1">
               Explore <span className="text-yellow-400">Plus</span>
-              <img 
-                src="https://static-assets-web.flixcart.com/batman-returns/batman-returns/p/images/header/Plus-4a498d.svg" 
-                alt="plus" 
-                className="h-3"
-              />
+              <svg 
+                className="h-3 w-3" 
+                viewBox="0 0 16 16" 
+                fill="none"
+              >
+                <path 
+                  d="M8 0L10.2 5.3L16 6.2L12 10.1L12.8 16L8 13.3L3.2 16L4 10.1L0 6.2L5.8 5.3L8 0Z" 
+                  fill="#FFE500"
+                />
+              </svg>
             </span>
           </Link>
 
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="flex-1 max-w-xl">
-            <div className="relative">
+            <div className="relative flex items-center bg-white rounded-sm">
               <input
                 type="text"
                 placeholder="Search for products, brands and more"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full py-2 pl-4 pr-12 rounded-sm text-sm focus:outline-none"
+                className="w-full py-2.5 pl-4 pr-12 text-sm text-gray-700 bg-transparent border-none outline-none focus:ring-0"
               />
               <button 
                 type="submit"
-                className="absolute right-0 top-0 h-full px-4 text-[#2874f0] hover:text-[#1a5dc7]"
+                className="absolute right-0 top-0 h-full px-4 text-[#2874f0] hover:text-[#1a5dc7] bg-gray-50 border-l border-gray-200"
               >
                 <FiSearch size={20} />
               </button>

@@ -80,11 +80,18 @@ const Register = () => {
               Sign up with your email to get started
             </p>
           </div>
-          <img
-            src="https://static-assets-web.flixcart.com/batman-returns/batman-returns/p/images/login_img-c6e3c.png"
-            alt="Register"
-            className="w-full"
-          />
+          <div className="flex items-center justify-center">
+            <svg className="w-48 h-48" viewBox="0 0 200 200" fill="none">
+              <circle cx="100" cy="80" r="40" fill="#FFE500"/>
+              <circle cx="100" cy="80" r="30" fill="#2874f0"/>
+              <circle cx="90" cy="75" r="5" fill="white"/>
+              <circle cx="110" cy="75" r="5" fill="white"/>
+              <path d="M85 90 Q100 105 115 90" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round"/>
+              <path d="M60 140 L100 110 L140 140" stroke="#FFE500" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="100" cy="160" r="20" fill="#FFE500"/>
+              <path d="M100 150 L100 170 M90 160 L110 160" stroke="#2874f0" strokeWidth="4" strokeLinecap="round"/>
+            </svg>
+          </div>
         </div>
 
         {/* Right Side - Form */}

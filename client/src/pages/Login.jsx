@@ -58,11 +58,19 @@ const Login = () => {
               Get access to your Orders, Wishlist and Recommendations
             </p>
           </div>
-          <img
-            src="https://static-assets-web.flixcart.com/batman-returns/batman-returns/p/images/login_img-c6e3c.png"
-            alt="Login"
-            className="w-full"
-          />
+          <div className="flex items-center justify-center">
+            <svg className="w-48 h-48" viewBox="0 0 200 200" fill="none">
+              <circle cx="100" cy="80" r="40" fill="#FFE500"/>
+              <circle cx="100" cy="80" r="30" fill="#2874f0"/>
+              <circle cx="90" cy="75" r="5" fill="white"/>
+              <circle cx="110" cy="75" r="5" fill="white"/>
+              <path d="M85 90 Q100 105 115 90" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round"/>
+              <rect x="70" y="120" width="60" height="60" rx="5" fill="#FFE500"/>
+              <rect x="80" y="130" width="40" height="8" rx="2" fill="#2874f0"/>
+              <rect x="80" y="145" width="30" height="8" rx="2" fill="#2874f0"/>
+              <rect x="80" y="160" width="35" height="8" rx="2" fill="#2874f0"/>
+            </svg>
+          </div>
         </div>
 
         {/* Right Side - Form */}
