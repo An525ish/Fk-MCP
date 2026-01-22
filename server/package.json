@@ -1,0 +1,35 @@
+{
+  "name": "flipkart-server",
+  "version": "1.0.0",
+  "description": "Flipkart Minutes Clone - Backend API",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "dev:server": "node --watch server.js",
+    "dev:client": "npm run dev --prefix client",
+    "seed": "node src/seed/index.js",
+    "seed:fresh": "node src/seed/index.js --fresh",
+    "build": "npm run build --prefix client"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "express-validator": "^7.2.1"
+  },
+  "keywords": [
+    "flipkart",
+    "ecommerce",
+    "mern",
+    "react",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "MIT"
+}
