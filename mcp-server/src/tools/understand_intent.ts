@@ -198,7 +198,12 @@ function extractEntities(message: string): ParsedIntent['entities'] {
 function generateClarifications(
   intentType: ParsedIntent['type'],
   entities: ParsedIntent['entities'],
-  userPreferences?: { dietaryPreference?: string | null; typicalOrderSize?: number | null }
+  userPreferences?: { 
+    dietaryPreference?: string | null; 
+    typicalOrderSize?: number | null;
+    inferredDietaryConfidence?: number | null;
+  },
+  preferenceHints: string[] = []
 ): ParsedIntent['clarificationsNeeded'] {
   const clarifications: ParsedIntent['clarificationsNeeded'] = [];
   
@@ -213,22 +218,48 @@ function generateClarifications(
     }
     
     // Check if we need dietary preference
-    if (!entities.dietaryPreference && !userPreferences?.dietaryPreference) {
+    // Even if we have inferred preference, ASK but provide hint
+    if (!entities.dietaryPreference) {
+      let question = 'Would you prefer vegetarian or non-vegetarian?';
+      
+      // Add hint from order history if available
+      if (userPreferences?.dietaryPreference && userPreferences.inferredDietaryConfidence) {
+        const dietLabel = userPreferences.dietaryPreference === 'veg' ? 'vegetarian' : 'non-vegetarian';
+        question = `Would you prefer vegetarian or non-vegetarian? (Last time you mostly ordered ${dietLabel})`;
+      }
+      
       clarifications.push({
         field: 'dietaryPreference',
-        question: 'Would you prefer vegetarian or non-vegetarian?',
-        options: ['Vegetarian', 'Non-Vegetarian', 'Vegan'],
+        question,
+        options: ['Vegetarian', 'Non-Vegetarian', 'Vegan', 
+          ...(userPreferences?.dietaryPreference ? [`Same as last time (${userPreferences.dietaryPreference === 'veg' ? 'Veg' : 'Non-Veg'})`] : [])
+        ],
       });
     }
     
     // Always ask for servings - it varies per order
     if (!entities.servings) {
+      let question = 'How many people are you cooking for?';
+      
+      // Add hint if we know typical order size
+      if (userPreferences?.typicalOrderSize) {
+        question = `How many people are you cooking for? (Your typical order serves around ${userPreferences.typicalOrderSize} people)`;
+      }
+      
       clarifications.push({
         field: 'servings',
-        question: 'How many people are you cooking for?',
+        question,
         options: ['1-2 people', '3-4 people', '5-6 people', '7+ people'],
       });
     }
+    
+    // Ask about allergies for recipe/food orders - SAFETY CRITICAL
+    clarifications.push({
+      field: 'allergies',
+      question: 'Do you have any food allergies I should know about?',
+      options: ['No allergies', 'Nuts', 'Dairy/Lactose', 'Gluten', 'Other (please specify)'],
+      optional: true, // Can be skipped
+    });
   }
   
   if (intentType === 'schedule' || entities.scheduledTime) {
@@ -265,7 +296,13 @@ export async function understandIntent(params: UnderstandIntentParams): Promise<
     const entities = extractEntities(message);
     
     // Get user preferences if authenticated (derived from order history)
-    let userPreferences: { dietaryPreference?: string | null; typicalOrderSize?: number | null } | undefined;
+    let userPreferences: { 
+      dietaryPreference?: string | null; 
+      typicalOrderSize?: number | null;
+      inferredDietaryConfidence?: number | null;
+    } | undefined;
+    let preferenceHints: string[] = [];
+    
     if (apiClient.isAuthenticated()) {
       try {
         const prefsResult = await apiClient.getPreferences();
@@ -276,21 +313,30 @@ export async function understandIntent(params: UnderstandIntentParams): Promise<
         userPreferences = {
           dietaryPreference: inferredDiet && inferredDiet.type !== 'mixed' ? inferredDiet.type : null,
           typicalOrderSize: prefs.typicalOrderSize,
+          inferredDietaryConfidence: inferredDiet?.confidence || null,
         };
         
-        // Apply inferred preferences to entities if not explicitly stated
-        // Only use inferred dietary if confidence is high (>80%)
-        if (!entities.dietaryPreference && userPreferences?.dietaryPreference) {
-          entities.dietaryPreference = userPreferences.dietaryPreference as 'veg' | 'non_veg' | 'vegan';
+        // Build preference hints to show user
+        if (inferredDiet && inferredDiet.type !== 'mixed' && inferredDiet.confidence) {
+          const dietLabel = inferredDiet.type === 'veg' ? 'vegetarian' : 'non-vegetarian';
+          preferenceHints.push(
+            `Based on your order history, you usually prefer ${dietLabel} items (${Math.round(inferredDiet.confidence)}% of orders).`
+          );
         }
-        // Don't auto-apply servings - always ask (varies per order)
+        
+        if (prefs.typicalOrderSize) {
+          preferenceHints.push(`Your typical order has around ${prefs.typicalOrderSize} items.`);
+        }
+        
+        // DON'T auto-apply dietary preference - let user confirm
+        // We'll include it as a hint in clarifications instead
       } catch {
         // Preferences not available, continue without them
       }
     }
     
-    // Generate clarifications
-    const clarifications = generateClarifications(intentType, entities, userPreferences);
+    // Generate clarifications (with preference hints)
+    const clarifications = generateClarifications(intentType, entities, userPreferences, preferenceHints);
     
     // Build suggested action
     let suggestedAction: string | undefined;
@@ -334,6 +380,7 @@ export async function understandIntent(params: UnderstandIntentParams): Promise<
       entities,
       clarificationsNeeded: clarifications,
       suggestedAction,
+      preferenceHints: preferenceHints.length > 0 ? preferenceHints : undefined,
     };
 
     // Build response message
@@ -348,6 +395,11 @@ export async function understandIntent(params: UnderstandIntentParams): Promise<
       if (entities.items) entityParts.push(`items: ${entities.items.join(', ')}`);
       
       responseMessage += `. Extracted: ${entityParts.join(', ')}`;
+    }
+    
+    // Add preference hints to response
+    if (preferenceHints.length > 0) {
+      responseMessage += `\n\nFrom your order history: ${preferenceHints.join(' ')}`;
     }
     
     if (clarifications.length > 0) {

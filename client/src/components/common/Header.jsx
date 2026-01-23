@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { FiSearch, FiShoppingCart, FiUser, FiMapPin, FiChevronDown, FiPackage, FiLogOut, FiWifi } from 'react-icons/fi';
+import { FiSearch, FiShoppingCart, FiUser, FiMapPin, FiChevronDown, FiPackage, FiLogOut } from 'react-icons/fi';
 import { logout } from '../../store/slices/authSlice';
-import { isConnected, subscribe } from '../../services/socket';
+import { isConnected, getSocket } from '../../services/socket';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -18,21 +18,38 @@ const Header = () => {
 
   // Track socket connection status
   useEffect(() => {
-    if (isAuthenticated) {
-      // Check initial status
-      setSocketConnected(isConnected());
+    if (!isAuthenticated) {
+      setSocketConnected(false);
+      return;
+    }
+
+    // Poll for connection status (simpler than event-based)
+    const checkConnection = () => {
+      const connected = isConnected();
+      setSocketConnected(connected);
+    };
+
+    // Check immediately
+    checkConnection();
+
+    // Also listen to socket events if socket exists
+    const socket = getSocket();
+    if (socket) {
+      const onConnect = () => setSocketConnected(true);
+      const onDisconnect = () => setSocketConnected(false);
       
-      // Subscribe to connection events
-      const unsubConnect = subscribe('connect', () => setSocketConnected(true));
-      const unsubDisconnect = subscribe('disconnect', () => setSocketConnected(false));
+      socket.on('connect', onConnect);
+      socket.on('disconnect', onDisconnect);
       
       return () => {
-        unsubConnect();
-        unsubDisconnect();
+        socket.off('connect', onConnect);
+        socket.off('disconnect', onDisconnect);
       };
-    } else {
-      setSocketConnected(false);
     }
+
+    // Fallback: poll every 2 seconds
+    const interval = setInterval(checkConnection, 2000);
+    return () => clearInterval(interval);
   }, [isAuthenticated]);
 
   const handleSearch = (e) => {

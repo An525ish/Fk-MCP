@@ -3,6 +3,9 @@ import { io } from 'socket.io-client';
 // Socket.IO client instance
 let socket = null;
 
+// Pending subscriptions (for events subscribed before connection)
+const pendingSubscriptions = [];
+
 // Event listeners registry
 const listeners = new Map();
 
@@ -10,8 +13,8 @@ const listeners = new Map();
  * Initialize Socket.IO connection
  */
 export function initializeSocket() {
-  if (socket?.connected) {
-    console.log('[Socket] Already connected');
+  if (socket) {
+    console.log('[Socket] Socket already exists, connected:', socket.connected);
     return socket;
   }
 
@@ -22,17 +25,26 @@ export function initializeSocket() {
     ? (import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin)
     : 'http://localhost:5000';
 
+  console.log('[Socket] Initializing connection to:', serverUrl);
+
   socket = io(serverUrl, {
     auth: { token },
     transports: ['websocket', 'polling'],
     reconnection: true,
-    reconnectionAttempts: 5,
+    reconnectionAttempts: 10,
     reconnectionDelay: 1000,
+    timeout: 10000,
   });
 
   // Connection events
   socket.on('connect', () => {
     console.log('[Socket] Connected:', socket.id);
+    
+    // Apply any pending subscriptions
+    pendingSubscriptions.forEach(({ event, callback }) => {
+      console.log('[Socket] Applying pending subscription:', event);
+      socket.on(event, callback);
+    });
   });
 
   socket.on('disconnect', (reason) => {
@@ -41,6 +53,11 @@ export function initializeSocket() {
 
   socket.on('connect_error', (error) => {
     console.error('[Socket] Connection error:', error.message);
+  });
+
+  // Debug: log all incoming events
+  socket.onAny((event, ...args) => {
+    console.log('[Socket] Received event:', event, args);
   });
 
   return socket;
@@ -54,6 +71,7 @@ export function disconnectSocket() {
     socket.disconnect();
     socket = null;
     listeners.clear();
+    pendingSubscriptions.length = 0;
     console.log('[Socket] Disconnected manually');
   }
 }
@@ -61,9 +79,10 @@ export function disconnectSocket() {
 /**
  * Reconnect with new token (after login)
  */
-export function reconnectWithToken(token) {
+export function reconnectWithToken(newToken) {
+  console.log('[Socket] Reconnecting with new token');
   if (socket) {
-    socket.auth = { token };
+    socket.auth = { token: newToken };
     socket.disconnect().connect();
   } else {
     initializeSocket();
@@ -75,22 +94,30 @@ export function reconnectWithToken(token) {
  * @returns Unsubscribe function
  */
 export function subscribe(event, callback) {
-  if (!socket) {
-    initializeSocket();
-  }
-
+  console.log('[Socket] Subscribing to:', event);
+  
   // Track listeners for cleanup
   if (!listeners.has(event)) {
     listeners.set(event, new Set());
   }
   listeners.get(event).add(callback);
 
-  socket.on(event, callback);
+  if (socket) {
+    socket.on(event, callback);
+  } else {
+    // Queue subscription for when socket connects
+    pendingSubscriptions.push({ event, callback });
+  }
 
   // Return unsubscribe function
   return () => {
+    console.log('[Socket] Unsubscribing from:', event);
     socket?.off(event, callback);
     listeners.get(event)?.delete(callback);
+    
+    // Remove from pending if exists
+    const idx = pendingSubscriptions.findIndex(s => s.event === event && s.callback === callback);
+    if (idx > -1) pendingSubscriptions.splice(idx, 1);
   };
 }
 

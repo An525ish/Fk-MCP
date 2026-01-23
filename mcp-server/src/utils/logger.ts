@@ -75,16 +75,9 @@ class Logger {
 
     const formatted = this.formatLog(entry);
 
-    switch (level) {
-      case 'error':
-        console.error(formatted);
-        break;
-      case 'warn':
-        console.warn(formatted);
-        break;
-      default:
-        console.log(formatted);
-    }
+    // IMPORTANT: Always use stderr for logging in MCP servers
+    // stdout is reserved for JSON-RPC communication
+    console.error(formatted);
   }
 
   debug(message: string, data?: unknown) {

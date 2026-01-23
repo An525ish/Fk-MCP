@@ -428,13 +428,16 @@ export interface ParsedIntent {
     dietaryPreference?: 'veg' | 'non_veg' | 'vegan';
     scheduledTime?: string;
     items?: string[];
+    allergies?: string[];
   };
   clarificationsNeeded: Array<{
     field: string;
     question: string;
     options?: string[];
+    optional?: boolean; // If true, user can skip this question
   }>;
   suggestedAction?: string;
+  preferenceHints?: string[]; // Hints from order history to show user
 }
 
 // ============================================

@@ -101,10 +101,16 @@ const cartSlice = createSlice({
     },
     // Real-time update from WebSocket
     setCartFromSocket: (state, action) => {
+      console.log('[cartSlice] setCartFromSocket called with:', action.payload);
       const { cart, bill } = action.payload;
-      state.items = cart.items;
-      state.totalItems = cart.totalItems;
-      state.bill = bill;
+      if (cart && cart.items !== undefined) {
+        state.items = cart.items;
+        state.totalItems = cart.totalItems;
+        console.log('[cartSlice] Updated items:', cart.items.length, 'totalItems:', cart.totalItems);
+      }
+      if (bill) {
+        state.bill = bill;
+      }
       state.loading = false;
     }
   },
